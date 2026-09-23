@@ -223,7 +223,7 @@ with T4:
     with c[0]:
         wr=f.groupby("review_score").wrote_text.mean().mul(100).reindex([1,2,3,4,5])
         fig=px.bar(x=[f"{i}점" for i in wr.index], y=wr.values, text=wr.round(1).values, color=[str(i) for i in wr.index], color_discrete_sequence=RCOLORS)
-        fig.update_layout(showlegend=False, xaxis_title="", yaxis_title="작성률 %", height=340, margin=dict(t=10), title="별점별 작성률 (U자)")
+        fig.update_layout(showlegend=False, xaxis_title="", yaxis_title="작성률 %", height=380, margin=dict(t=55,l=10,r=30), title="별점별 작성률 (U자)")
         st.plotly_chart(fig, width="stretch")
     with c[1]:
         rows=[]
@@ -234,7 +234,7 @@ with T4:
         rows.append(("다품목", f[f.n_products>1].wrote_text.mean()*100))
         rd=pd.DataFrame(rows,columns=["요인","작성률"])
         fig=px.bar(rd, x="작성률", y="요인", orientation="h", text=rd.작성률.round(1), color_discrete_sequence=[BLUE])
-        fig.update_layout(xaxis_title="작성률 %", yaxis_title="", height=340, margin=dict(t=10), title="요인별 작성률")
+        fig.update_layout(xaxis_title="작성률 %", yaxis_title="", height=380, margin=dict(t=55,l=10,r=30), title="요인별 작성률")
         st.plotly_chart(fig, width="stretch")
     st.info("작성 방아쇠는 '불만'(저평점 U자). 지연·다품목도 작성을 늘리나, 평점을 통제하면 지연 효과는 사라짐 → 텍스트는 극단 의견의 부분집합.")
 
