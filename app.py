@@ -102,12 +102,14 @@ cats=sorted(o.category.unique().tolist())
 sel_cat=st.sidebar.multiselect("카테고리", cats, default=[])
 states=sorted(o.customer_state.dropna().unique().tolist())
 sel_state=st.sidebar.multiselect("고객 주(state)", states, default=[])
+sel_rating=st.sidebar.multiselect("평점(별점) 선택", [1,2,3,4,5], default=[1,2,3,4,5])
 st.sidebar.caption("필터는 탭 1~4·6에 적용됩니다. (판매자 탭은 전체 기준)")
 
 f=o.copy()
 if delivered_only: f=f[f.order_status=="delivered"]
 if sel_cat: f=f[f.category.isin(sel_cat)]
 if sel_state: f=f[f.customer_state.isin(sel_state)]
+if sel_rating: f=f[f.review_score.isin(sel_rating)]
 
 st.title("Olist 리뷰·평점 기반 CX 개선 대시보드")
 st.caption(f"필터 적용 주문 {len(f):,}건 · 전체 {len(o):,}건 · 데이터: Olist Brazilian E-Commerce (Kaggle)")
@@ -159,6 +161,22 @@ with T2:
             st.plotly_chart(fig, width="stretch")
         else: st.info("해당 필터에 고평점 텍스트 리뷰가 없습니다.")
         st.caption(f"고평점 텍스트 리뷰 {len(hi_t):,}건")
+    # 평점대별 유형 분포 히트맵
+    st.markdown("---")
+    st.subheader("평점대별 유형 분포 (선택 평점 대상 · 텍스트 리뷰 기준 %)")
+    present=sorted(int(s) for s in tdf.score.unique())
+    if present:
+        cc=st.columns(2)
+        comp_hm=pd.DataFrame({f"{s}점":(tdf[tdf.score==s][list(COMP)].mean()*100) for s in present}).round(1)
+        fig=px.imshow(comp_hm, text_auto=".1f", color_continuous_scale="OrRd", aspect="auto", labels=dict(color="%"))
+        fig.update_layout(height=330, margin=dict(t=34,b=10), title="불만 유형 × 평점", coloraxis_showscale=False)
+        cc[0].plotly_chart(fig, width="stretch")
+        pos_hm=pd.DataFrame({f"{s}점":(tdf[tdf.score==s][list(POS)].mean()*100) for s in present}).round(1)
+        fig=px.imshow(pos_hm, text_auto=".1f", color_continuous_scale="Greens", aspect="auto", labels=dict(color="%"))
+        fig.update_layout(height=330, margin=dict(t=34,b=10), title="만족 유형 × 평점", coloraxis_showscale=False)
+        cc[1].plotly_chart(fig, width="stretch")
+    else:
+        st.info("선택한 평점에 텍스트 리뷰가 없습니다.")
     # 워드클라우드 이미지(있으면)
     imgs=[("wc_negative_kr.png","저평점 불만 (한국어)"),("wc_positive.png","고평점 만족 (원어)")]
     cols=st.columns(2)
