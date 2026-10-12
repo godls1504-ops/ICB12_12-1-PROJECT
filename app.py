@@ -114,7 +114,7 @@ if sel_rating: f=f[f.review_score.isin(sel_rating)]
 st.title("Olist 리뷰·평점 기반 CX 개선 대시보드")
 st.caption(f"필터 적용 주문 {len(f):,}건 · 전체 {len(o):,}건 · 데이터: Olist Brazilian E-Commerce (Kaggle)")
 
-T1,T2,T3,T4,T5,T6=st.tabs(["① 평점 현황","② 리뷰 원인","③ 배송 영향","④ 작성 행동","⑤ 판매자 관리","⑥ 개선 우선순위"])
+T1,T2,T3,T4,T5,T6,T7=st.tabs(["① 평점 현황","② 리뷰 원인","③ 배송 영향","④ 작성 행동","⑤ 판매자 관리","⑥ 개선 우선순위","⑦ 카테고리 심층"])
 
 # ── TAB1 평점 현황 ──
 with T1:
@@ -282,5 +282,48 @@ with T6:
     st.markdown("**저평점 건수 TOP 15 (개선 임팩트 순)**")
     top=cg.sort_values("저평점건수",ascending=False).head(15)[["category","주문수","저평점건수","저평점률","평균평점"]]
     st.dataframe(top.round({"저평점률":1,"평균평점":2}), width="stretch", height=300)
+
+# ── TAB7 카테고리 심층 (전체 카테고리에서 하나 선택) ──
+with T7:
+    st.subheader("카테고리별 리뷰 분석 — 원하는 카테고리를 선택하세요")
+    base = o[o.order_status=="delivered"] if delivered_only else o
+    allcats = base.category.value_counts()
+    allcats = allcats[allcats>=30].index.tolist()  # 리뷰 30건 이상 카테고리
+    default = base.category.value_counts().idxmax()
+    pick = st.selectbox("카테고리 선택 (전체 카테고리 기준)", allcats,
+                        index=allcats.index(default) if default in allcats else 0)
+    cdd = base[base.category==pick]
+    c=st.columns(4)
+    c[0].metric("주문 수", f"{len(cdd):,}")
+    c[1].metric("평균 평점", f"{cdd.review_score.mean():.2f}", f"{cdd.review_score.mean()-base.review_score.mean():+.2f} vs 전체")
+    c[2].metric("저평점률(1~2점)", f"{cdd.low.mean()*100:.1f}%",
+                f"{(cdd.low.mean()-base.low.mean())*100:+.1f}%p vs 전체", delta_color="inverse")
+    c[3].metric("정시 배송률", f"{cdd.on_time.mean()*100:.1f}%")
+    a,b=st.columns(2)
+    with a:
+        st.markdown("**별점 분포**")
+        vc=cdd.review_score.value_counts().reindex([1,2,3,4,5]).fillna(0)
+        fig=px.bar(x=[f"{i}점" for i in vc.index], y=(vc/vc.sum()*100).round(1),
+            color=[str(i) for i in vc.index], color_discrete_sequence=RCOLORS, text=(vc/vc.sum()*100).round(1))
+        fig.update_layout(showlegend=False, xaxis_title="", yaxis_title="%", height=330, margin=dict(t=10))
+        st.plotly_chart(fig, width="stretch")
+    with b:
+        st.markdown("**이 카테고리의 불만 유형 (저평점 텍스트)**")
+        tdf=classify_types(cdd.order_id.tolist(), cdd.txt.tolist(), cdd.review_score.tolist())
+        lowt=tdf[tdf.score<=2]
+        if len(lowt)>=5:
+            comp=(lowt[list(COMP)].mean()*100).sort_values()
+            fig=px.bar(x=comp.values, y=comp.index, orientation="h", text=comp.round(1), color_discrete_sequence=[RED])
+            fig.update_layout(xaxis_title="저평점 텍스트 대비 %", yaxis_title="", height=330, margin=dict(t=10))
+            st.plotly_chart(fig, width="stretch")
+            st.caption(f"저평점 텍스트 리뷰 {len(lowt):,}건 기준")
+        else:
+            st.info("이 카테고리는 저평점 텍스트 리뷰가 적어 유형 분석을 생략합니다.")
+    st.markdown("**대표 저평점 리뷰 (샘플)**")
+    samp=cdd[(cdd.review_score<=2)&(cdd.txt.str.strip()!="")].txt.head(6).tolist()
+    if samp:
+        for t in samp: st.write("• "+(t[:160]))
+    else:
+        st.caption("텍스트가 달린 저평점 리뷰가 없습니다.")
 
 st.caption("※ 상관 기반 우선순위이며 인과 아님. 텍스트 리뷰는 부분집합. 규칙기반 감성은 부정어 한계 존재.")
