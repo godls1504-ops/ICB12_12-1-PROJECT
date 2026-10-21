@@ -298,7 +298,8 @@ elif page=="상품·판매자 관리":
 # ═══════════════════════════ ④ 리뷰 VOC 탐색 ═══════════════════════════
 else:
     st.markdown("<div class='sec'><h2>리뷰 VOC 탐색</h2><p>별점과 실제 텍스트를 함께 확인해 숫자만으로 보이지 않는 원인을 찾습니다. 원문은 포르투갈어이며, 1~2점·불일치 리뷰는 한국어 기계 번역을 함께 보여줍니다.</p></div>", unsafe_allow_html=True)
-    TOPICS=["전체 텍스트 리뷰"]+C.COMP_TYPES+["불일치: 고평점·부정","불일치: 저평점·긍정"]
+    # 불만 유형부터 보여주고(번역 완료 목록), 전체 텍스트 리뷰는 맨 아래
+    TOPICS=C.COMP_TYPES+["불일치: 고평점·부정","불일치: 저평점·긍정","전체 텍스트 리뷰"]
     counts={t:(len(ft) if t=="전체 텍스트 리뷰" else int(ft[t].sum())) for t in TOPICS}
     a,b=st.columns([1,2.2])
     with a, st.container(border=True):
@@ -310,7 +311,7 @@ else:
         order_by=st.radio("정렬", ["무작위 표본","최근 주문 순","낮은 별점 순"], horizontal=True)
         has_ko=ft["txt_ko"].notna().any()
         show_ko=st.toggle("한국어 번역으로 보기", value=bool(has_ko), disabled=not has_ko)
-        st.markdown("<p class='desc'>번역 대상: 1~2점·불일치 리뷰 · 무료 기계 번역(NLLB-200)이라 오역이 있을 수 있어 원문을 함께 표시합니다.</p>"
+        st.markdown("<p class='desc'>번역 대상: 불만 유형·불일치 목록의 리뷰 · 무료 기계 번역(NLLB-200)이라 오역이 있을 수 있어 원문을 함께 표시합니다.</p>"
                     if has_ko else "<p class='desc'>번역 파일(data/review_ko.csv)이 없어 원문만 표시합니다.</p>", unsafe_allow_html=True)
     with b, st.container(border=True):
         sub=ft if topic=="전체 텍스트 리뷰" else ft[ft[topic]==1]
