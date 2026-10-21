@@ -54,7 +54,7 @@ html, body, .stApp, [class*="css"], button, input, select, textarea {{ font-fami
 .review {{ padding:14px 0; border-bottom:1px solid {LINE}; }}
 .review-head {{ display:flex; gap:7px; align-items:center; flex-wrap:wrap; margin-bottom:7px; font-size:13px; }}
 .score {{ font-weight:900; }} .tag {{ font-size:10.5px; padding:3px 7px; font-weight:800; border-radius:4px; }}
-.review p {{ margin:0; line-height:1.55; font-size:14px; }} .review small {{ display:block; color:{MUTED}; margin-top:5px; font-size:11.5px; }}
+.review p {{ margin:0; line-height:1.55; font-size:14px; }} .review p.orig {{ margin-top:4px; color:{MUTED}; font-size:12.5px; line-height:1.45; }} .review small {{ display:block; color:{MUTED}; margin-top:5px; font-size:11.5px; }}
 .gradecards {{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }}
 .gc {{ background:#fff; padding:14px 15px; }} .gc .t {{ font-weight:800; font-size:13px; }} .gc b {{ display:block; font-size:24px; margin-top:4px; }} .gc small {{ color:{MUTED}; font-size:11.5px; }}
 button[kind="primary"] {{ background:{GREEN}; border-color:{GREEN}; }}
@@ -297,7 +297,7 @@ elif page=="상품·판매자 관리":
 
 # ═══════════════════════════ ④ 리뷰 VOC 탐색 ═══════════════════════════
 else:
-    st.markdown("<div class='sec'><h2>리뷰 VOC 탐색</h2><p>별점과 실제 텍스트를 함께 확인해 숫자만으로 보이지 않는 원인을 찾습니다. 원문은 포르투갈어입니다.</p></div>", unsafe_allow_html=True)
+    st.markdown("<div class='sec'><h2>리뷰 VOC 탐색</h2><p>별점과 실제 텍스트를 함께 확인해 숫자만으로 보이지 않는 원인을 찾습니다. 원문은 포르투갈어이며, 1~2점·불일치 리뷰는 한국어 기계 번역을 함께 보여줍니다.</p></div>", unsafe_allow_html=True)
     TOPICS=["전체 텍스트 리뷰"]+C.COMP_TYPES+["불일치: 고평점·부정","불일치: 저평점·긍정"]
     counts={t:(len(ft) if t=="전체 텍스트 리뷰" else int(ft[t].sum())) for t in TOPICS}
     a,b=st.columns([1,2.2])
@@ -306,18 +306,24 @@ else:
         st.markdown("<p class='desc'>유형을 고르면 오른쪽 리뷰가 바뀝니다. 괄호는 필터 내 건수.</p>", unsafe_allow_html=True)
         topic=st.radio("유형", TOPICS, format_func=lambda t:f"{t}  ({counts[t]:,})", label_visibility="collapsed")
         stars=st.multiselect("별점", [1,2,3,4,5], default=[], placeholder="전체 별점")
-        q=st.text_input("원문 검색", placeholder="예: nao chegou, quebrado")
+        q=st.text_input("리뷰 검색 (한국어·원문)", placeholder="예: 도착, 파손, nao chegou")
         order_by=st.radio("정렬", ["무작위 표본","최근 주문 순","낮은 별점 순"], horizontal=True)
+        has_ko=ft["txt_ko"].notna().any()
+        show_ko=st.toggle("한국어 번역으로 보기", value=bool(has_ko), disabled=not has_ko)
+        st.markdown("<p class='desc'>번역 대상: 1~2점·불일치 리뷰 · 무료 기계 번역(NLLB-200)이라 오역이 있을 수 있어 원문을 함께 표시합니다.</p>"
+                    if has_ko else "<p class='desc'>번역 파일(data/review_ko.csv)이 없어 원문만 표시합니다.</p>", unsafe_allow_html=True)
     with b, st.container(border=True):
         sub=ft if topic=="전체 텍스트 리뷰" else ft[ft[topic]==1]
         if stars: sub=sub[sub.review_score.isin(stars)]
-        if q.strip(): sub=sub[sub.txt.str.contains(q.strip(), case=False, regex=False, na=False)]
+        if q.strip():
+            qq=q.strip()
+            sub=sub[sub.txt.str.contains(qq, case=False, regex=False, na=False) | sub.txt_ko.fillna("").str.contains(qq, case=False, regex=False)]
         if order_by=="최근 주문 순": sub=sub.sort_values("order_purchase_timestamp", ascending=False)
         elif order_by=="낮은 별점 순": sub=sub.sort_values(["review_score","order_purchase_timestamp"], ascending=[True,False])
         else: sub=sub.sample(frac=1, random_state=7)
         n=len(sub); per=10; pages=max(1,(n+per-1)//per)
         h1,h2=st.columns([3,1])
-        h1.subheader("리뷰 원문 확인")
+        h1.subheader("리뷰 확인")
         pg=h2.number_input("페이지", 1, pages, 1, label_visibility="collapsed") if pages>1 else 1
         st.markdown(f"<p class='desc'>{n:,}건 중 {min(n,(pg-1)*per+1) if n else 0}–{min(n,pg*per)}번째 · {order_by}</p>", unsafe_allow_html=True)
         if n==0:
@@ -335,8 +341,14 @@ else:
                 f"판매자 {str(x.seller_id)[:8]}" if isinstance(x.seller_id,str) else "",
                 f"등급 {x.grade}" if isinstance(x.grade,str) and x.grade!="판단 보류" else ""] if v)
             date=x.order_purchase_timestamp.strftime("%Y-%m-%d") if pd.notna(x.order_purchase_timestamp) else ""
+            ko=x.get("txt_ko")
+            if show_ko and isinstance(ko,str) and ko.strip():
+                tags+=f"<span class='tag' style='background:#eef2f0;color:{MUTED}'>기계 번역</span>"
+                body=f"<p>{html.escape(ko)}</p><p class='orig'>원문: {html.escape(str(x.txt))}</p>"
+            else:
+                body=f"<p>{html.escape(str(x.txt))}</p>"
             out.append(f"""<div class="review"><div class="review-head"><span class="score" style="color:{scol}">{sc}점</span>{tags}</div>
-              <p>{html.escape(str(x.txt))}</p><small>{html.escape(meta)} · 주문 {date}</small></div>""")
+              {body}<small>{html.escape(meta)} · 주문 {date}</small></div>""")
         st.markdown("".join(out), unsafe_allow_html=True)
 
 st.caption("데이터: Olist Brazilian E-Commerce Public Dataset. 리뷰 유형·불일치·판매자 등급은 팀 분석 결과표(CSV)를 사용합니다. "

@@ -24,6 +24,7 @@ streamlit run control_center.py
   - `data/review_types.csv` ← CSV/리뷰_텍스트_유형분류.csv
   - `data/mismatch_high_negative.csv`, `data/mismatch_low_positive.csv` ← CSV/불일치_*.csv
   - `data/seller_clusters_k4.csv` ← CSV/판매자_군집결과.csv (군집 0=우수, 3=우수·고거래, 1=개선 필요, 2=위험)
+  - `data/review_ko.csv` — 1~2점·불일치 리뷰 11,211문장의 한국어 기계 번역 (무료 로컬 모델 NLLB-200 600M). 리뷰 VOC 화면에서 원문과 함께 표시되며, 오역이 있을 수 있어 참고용입니다.
 - 공통 로직은 `cx_core.py`에 있습니다. `.streamlit/config.toml`은 포인트 색(초록)과 툴바 숨김 설정입니다.
 
 ## 데이터

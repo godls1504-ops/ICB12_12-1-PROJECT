@@ -90,4 +90,11 @@ def review_types():
     lo=set(pd.read_csv(f"{RAW}/mismatch_low_positive.csv").order_id)
     t["불일치: 고평점·부정"]=t.order_id.isin(hi).astype(int)
     t["불일치: 저평점·긍정"]=t.order_id.isin(lo).astype(int)
+    # 한국어 기계 번역 (1~2점·불일치 리뷰, NLLB-200 600M). 파일이 없으면 원문만 사용
+    ko=f"{RAW}/review_ko.csv"
+    if os.path.exists(ko):
+        k=pd.read_csv(ko, keep_default_na=False)
+        t["txt_ko"]=t.txt.map(dict(zip(k.txt, k.txt_ko)))
+    else:
+        t["txt_ko"]=np.nan
     return t
